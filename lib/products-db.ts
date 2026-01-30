@@ -51,12 +51,19 @@ export async function saveProducts(products: ProductDB[]): Promise<void> {
 }
 
 /**
+ * Extrai só dígitos do valor (busca flexível: ignora espaços, traços, etc.).
+ */
+export function digitsOnly(gtin: string): string {
+  return (gtin || '').trim().replace(/\D/g, '');
+}
+
+/**
  * Normaliza GTIN (código de barras) para comparação e armazenamento.
  * EAN-13: só dígitos, 13 caracteres (zeros à esquerda).
  * Assim o scanner encontra o produto mesmo com formato diferente (espaços, zeros à esquerda, etc.).
  */
 export function normalizeGtin(gtin: string): string {
-  const digits = (gtin || '').trim().replace(/\D/g, '');
+  const digits = digitsOnly(gtin);
   if (digits.length === 0) return '';
   const s = digits.length > 13 ? digits.slice(-13) : digits;
   return s.padStart(13, '0');
@@ -68,12 +75,30 @@ export async function getProductByCodigo(codigo: string): Promise<ProductDB | nu
   return products.find(p => p.codigo === codigo) || null;
 }
 
-// Buscar produto por GTIN (código de barras EAN-13)
+/**
+ * Busca produto por GTIN (código de barras).
+ * Pesquisa na coluna gtin do banco (sync Sysmo grava gtin/codigo_barras/ean nessa coluna).
+ * Busca flexível: só dígitos na comparação; tenta o código exatamente como lido e com '0' na frente.
+ */
 export async function getProductByGtin(gtin: string): Promise<ProductDB | null> {
-  const normalized = normalizeGtin(gtin);
-  if (!normalized) return null;
+  const raw = (gtin || '').trim();
+  if (!raw) return null;
+
+  const digits = digitsOnly(raw);
+  if (digits.length === 0) return null;
+
+  // Candidatos: exatamente como lido (normalizado) e com '0' na frente (EAN-13)
+  const candidates = new Set<string>();
+  const n1 = normalizeGtin(raw);
+  if (n1) candidates.add(n1);
+  const withLeadingZero = normalizeGtin('0' + digits);
+  if (withLeadingZero) candidates.add(withLeadingZero);
+
   const products = await getProducts();
-  return products.find(p => normalizeGtin(p.gtin || '') === normalized) || null;
+  return products.find((p) => {
+    const pNorm = normalizeGtin(p.gtin || '');
+    return pNorm && candidates.has(pNorm);
+  }) || null;
 }
 
 // Atualizar badge (ex: oferta relâmpago)
