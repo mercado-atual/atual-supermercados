@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   Camera,
   Tag,
+  Search,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -32,6 +33,9 @@ export default function AdminScannerPage() {
   const [product, setProduct] = useState<ProductInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchName, setSearchName] = useState("");
+  const [nameResults, setNameResults] = useState<ProductInfo[] | null>(null);
+  const [loadingName, setLoadingName] = useState(false);
   const lastGtinRef = useRef<string | null>(null);
   const scannerRef = useRef<HTMLDivElement>(null);
   const html5QrRef = useRef<InstanceType<typeof import("html5-qrcode").Html5Qrcode> | null>(null);
@@ -127,6 +131,42 @@ export default function AdminScannerPage() {
     },
     []
   );
+
+  const searchByName = useCallback(async () => {
+    const q = searchName.trim();
+    if (!q) return;
+    const token = localStorage.getItem("admin_token");
+    if (!token) return;
+    setLoadingName(true);
+    setNameResults(null);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/products/by-name?q=${encodeURIComponent(q)}&limit=20`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await res.json();
+      if (data.success && Array.isArray(data.products) && data.products.length > 0) {
+        const list: ProductInfo[] = data.products.map((p: { codigo: string; descricao: string; gtin: string; preco: number; estoque: number }) => ({
+          codigo: p.codigo,
+          descricao: p.descricao,
+          gtin: p.gtin,
+          preco: p.preco,
+          precoSysmo: p.preco,
+          estoque: p.estoque,
+        }));
+        setNameResults(list);
+      } else {
+        setNameResults([]);
+        setError(data.message || "Nenhum produto encontrado com esse nome.");
+      }
+    } catch {
+      setError("Erro ao buscar. Verifique a conexão.");
+      setNameResults(null);
+    } finally {
+      setLoadingName(false);
+    }
+  }, [searchName]);
 
   const requestCamera = useCallback(() => {
     setError(null);
@@ -297,6 +337,55 @@ export default function AdminScannerPage() {
               <Flashlight size={20} className={torchOn ? "text-amber-300" : ""} />
               {torchOn ? "Desligar lanterna" : "Ativar lanterna"}
             </button>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="mb-2 text-sm font-medium text-slate-700">
+              Não achou pelo código? Busque pelo nome (ex: Supino, Abacaxi)
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={searchName}
+                onChange={(e) => setSearchName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && searchByName()}
+                placeholder="Digite parte do nome..."
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400"
+              />
+              <button
+                type="button"
+                onClick={searchByName}
+                disabled={loadingName || !searchName.trim()}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {loadingName ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search size={18} />}
+                Buscar
+              </button>
+            </div>
+            {nameResults && nameResults.length > 0 && (
+              <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto">
+                {nameResults.map((p) => (
+                  <li key={p.codigo}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProduct(p);
+                        setNameResults(null);
+                        setSearchName("");
+                        setError(null);
+                      }}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-100"
+                    >
+                      <span className="font-medium">{p.descricao}</span>
+                      <span className="ml-2 text-slate-500">R$ {p.preco.toFixed(2).replace(".", ",")} · {p.codigo}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {nameResults && nameResults.length === 0 && (
+              <p className="mt-2 text-sm text-slate-500">Nenhum produto encontrado. Tente outro termo.</p>
+            )}
           </div>
         </>
       )}
