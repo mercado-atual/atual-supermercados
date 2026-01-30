@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAllOrders } from "@/lib/orders";
 import { getProducts } from "@/lib/products-db";
+import { verifyAdminToken } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
 function isAdminAuthenticated(request: NextRequest): boolean {
   const authHeader = request.headers.get("authorization");
-  return authHeader === `Bearer ${process.env.ADMIN_SECRET || "admin_secret_123"}`;
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  return verifyAdminToken(token);
 }
 
 export async function GET(request: NextRequest) {

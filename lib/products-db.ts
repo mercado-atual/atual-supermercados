@@ -50,6 +50,18 @@ export async function saveProducts(products: ProductDB[]): Promise<void> {
   await fs.writeFile(DB_FILE, JSON.stringify(products, null, 2), 'utf-8');
 }
 
+/**
+ * Normaliza GTIN (código de barras) para comparação e armazenamento.
+ * EAN-13: só dígitos, 13 caracteres (zeros à esquerda).
+ * Assim o scanner encontra o produto mesmo com formato diferente (espaços, zeros à esquerda, etc.).
+ */
+export function normalizeGtin(gtin: string): string {
+  const digits = (gtin || '').trim().replace(/\D/g, '');
+  if (digits.length === 0) return '';
+  const s = digits.length > 13 ? digits.slice(-13) : digits;
+  return s.padStart(13, '0');
+}
+
 // Buscar produto por código
 export async function getProductByCodigo(codigo: string): Promise<ProductDB | null> {
   const products = await getProducts();
@@ -58,12 +70,10 @@ export async function getProductByCodigo(codigo: string): Promise<ProductDB | nu
 
 // Buscar produto por GTIN (código de barras EAN-13)
 export async function getProductByGtin(gtin: string): Promise<ProductDB | null> {
-  const normalized = (gtin || '').trim().replace(/^0+/, '') || gtin;
+  const normalized = normalizeGtin(gtin);
+  if (!normalized) return null;
   const products = await getProducts();
-  return products.find(p => {
-    const pGtin = (p.gtin || '').trim().replace(/^0+/, '');
-    return pGtin === normalized || p.gtin === gtin;
-  }) || null;
+  return products.find(p => normalizeGtin(p.gtin || '') === normalized) || null;
 }
 
 // Atualizar badge (ex: oferta relâmpago)
@@ -174,8 +184,8 @@ export async function importProductsFromCSV(
         }
       }
       
-      // Normalizar GTIN
-      const gtin = (row.gtin || '').trim();
+      // Normalizar GTIN (EAN-13, 13 dígitos) para o scanner encontrar; senão manter original
+      const gtinFinal = normalizeGtin(row.gtin || '') || (row.gtin || '').trim();
       
       // Verificar se já existe
       const exists = existingCodes.has(row.codigo.trim());
@@ -183,7 +193,7 @@ export async function importProductsFromCSV(
       await upsertProduct({
         codigo: row.codigo.trim(),
         descricao: row.descricao.trim(),
-        gtin: gtin,
+        gtin: gtinFinal,
         preco: preco,
         estoque: estoque,
       });

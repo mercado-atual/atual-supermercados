@@ -77,10 +77,13 @@ export default function AdminScannerPage() {
         audioContextRef.current = new Ctx();
       }
       const ctx = audioContextRef.current;
+      const playAfterUnlock = () => {
+        setTimeout(() => playBeep(), 150);
+      };
       if (ctx.state === "suspended") {
-        ctx.resume().then(() => playBeep()).catch(() => {});
+        ctx.resume().then(playAfterUnlock).catch(() => {});
       } else {
-        playBeep();
+        playAfterUnlock();
       }
     } catch {
       // ignorar
@@ -169,7 +172,7 @@ export default function AdminScannerPage() {
             const gtin = decodedText.replace(/\D/g, "").slice(-13) || decodedText;
             if (gtin.length >= 8 && gtin !== lastGtinRef.current) {
               lastGtinRef.current = gtin;
-              playBeep();
+              setTimeout(() => playBeep(), 0);
               fetchProduct(gtin);
             }
           },
@@ -246,7 +249,7 @@ export default function AdminScannerPage() {
   }
 
   return (
-    <div className="space-y-4 pb-6">
+    <div className="space-y-4 pb-6 px-1 min-h-screen">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">
           Scanner de preços
@@ -268,11 +271,12 @@ export default function AdminScannerPage() {
         <button
           type="button"
           onClick={requestCamera}
-          className="flex w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 py-12 text-slate-700 transition hover:border-slate-400 hover:bg-slate-100"
+          className="flex w-full min-h-[180px] flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 py-12 text-slate-700 transition active:bg-slate-100 hover:border-slate-400 hover:bg-slate-100 touch-manipulation select-none"
+          style={{ WebkitTapHighlightColor: "transparent" }}
         >
           <Camera className="h-14 w-14 text-slate-500" />
           <span className="text-lg font-semibold">Iniciar câmera</span>
-          <span className="text-sm text-slate-500">Toque para permitir a câmera (necessário no celular)</span>
+          <span className="text-sm text-slate-500 text-center px-4">Toque para permitir a câmera e ativar o som (necessário no celular)</span>
         </button>
       ) : (
         <>
@@ -282,7 +286,7 @@ export default function AdminScannerPage() {
             </div>
           )}
 
-          <div ref={scannerRef} className="flex min-h-[240px] justify-center" />
+          <div ref={scannerRef} className="flex min-h-[240px] w-full justify-center overflow-hidden rounded-xl bg-black" />
 
           <div className="flex flex-wrap gap-2">
             <button

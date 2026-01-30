@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchSistemaProdutos } from "@/lib/sistema";
-import { getProducts, saveProducts } from "@/lib/products-db";
+import { getProducts, saveProducts, normalizeGtin } from "@/lib/products-db";
 import type { Produto } from "@/types/Produto";
 import fs from "fs/promises";
 import path from "path";
@@ -12,10 +12,11 @@ const LAST_SYNC_FILE = path.join(process.cwd(), "data", "last_sync_sysmo.json");
 
 function produtoToProductDB(p: Produto) {
   const now = new Date().toISOString();
+  const gtin = normalizeGtin(p.gtin || "") || (p.gtin || "").trim();
   return {
     codigo: p.codigo,
     descricao: p.descricao,
-    gtin: p.gtin,
+    gtin,
     preco: p.preco,
     estoque: p.estoque,
     imagem: p.imagem || "",

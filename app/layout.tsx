@@ -9,6 +9,7 @@ import UnderConstructionBanner from "@/components/UnderConstructionBanner";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://atual-supermercados.vercel.app"),
   title: "Atual Supermercados | Ofertas, Hortifruti, Açougue e Padaria",
   description:
     "Compre online no Atual Supermercados. Ofertas do dia, hortifruti fresco, açougue, padaria e entrega rápida na sua região.",
