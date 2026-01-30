@@ -14,7 +14,7 @@ import { useState } from "react";
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/scanner", label: "Scanner", icon: ScanBarcode },
+  { href: "/admin/scanner", label: "Consultar Preço (Scanner)", icon: ScanBarcode },
   { href: "/admin/pedidos", label: "Esteira de Pedidos", icon: ShoppingBag },
   { href: "/admin/produtos", label: "Produtos", icon: Package },
 ];

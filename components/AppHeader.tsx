@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { ShoppingCart, User, Search, Menu, LogOut } from "lucide-react";
+import { ShoppingCart, User, Search, Menu, LogOut, ScanBarcode } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { CATALOG_MODE } from "@/lib/catalog-config";
@@ -220,6 +220,15 @@ export default function AppHeader() {
                     );
                   })}
                   <div className="border-t border-gray-200 my-2"></div>
+                  <Link
+                    href="/admin/scanner"
+                    className="flex items-center gap-2 px-4 py-3 text-red-600 hover:bg-red-50 font-semibold transition-colors"
+                    onClick={() => setShowMobileMenu(false)}
+                  >
+                    <ScanBarcode size={20} />
+                    Consultar Preço (Scanner)
+                  </Link>
+                  <div className="border-t border-gray-200 my-2"></div>
                   {isAuthenticated && user ? (
                     <>
                       <Link
@@ -301,7 +310,7 @@ export default function AppHeader() {
               )}
             </div>
 
-            {/* Links rápidos: Ofertas, Feira, Bebidas, Churrasco, Limpeza, Padaria (direita) */}
+            {/* Links rápidos: Ofertas, Feira, Bebidas, Churrasco, Limpeza, Padaria + Scanner (direita) */}
             <div className="flex items-center gap-4 overflow-x-auto text-sm font-medium text-gray-700">
               {BARRA_LINKS_RAPIDOS.map((item) => (
                 <Link
@@ -312,6 +321,13 @@ export default function AppHeader() {
                   {item.label}
                 </Link>
               ))}
+              <Link
+                href="/admin/scanner"
+                className="flex items-center gap-1.5 whitespace-nowrap rounded-md bg-red-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-red-700 transition-colors"
+              >
+                <ScanBarcode size={18} />
+                Consultar Preço (Scanner)
+              </Link>
             </div>
           </nav>
         </div>

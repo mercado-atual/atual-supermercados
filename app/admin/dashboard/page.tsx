@@ -92,8 +92,11 @@ export default function AdminDashboardPage() {
         href="/admin/scanner"
         className="block w-full rounded-2xl border-2 border-slate-800 bg-slate-800 px-6 py-8 text-center text-xl font-bold text-white shadow-lg transition hover:bg-slate-700 hover:shadow-xl sm:py-10 sm:text-2xl md:text-3xl"
       >
-        📷 ABRIR SCANNER AGORA
+        Consultar Preço (Scanner)
       </Link>
+      <p className="text-center text-sm text-slate-500 -mt-2">
+        Abrir câmera e bipar código de barras para ver nome e preço do produto.
+      </p>
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>

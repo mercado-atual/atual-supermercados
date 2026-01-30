@@ -266,16 +266,16 @@ export default function AdminScannerPage() {
             {product.descricao}
           </h2>
           <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl bg-emerald-100 p-4 sm:col-span-2">
+              <p className="text-xs font-medium uppercase text-emerald-700">Preço atual</p>
+              <p className="text-2xl font-bold text-slate-900">
+                R$ {product.preco.toFixed(2).replace(".", ",")}
+              </p>
+            </div>
             <div className="rounded-xl bg-slate-50 p-3">
               <p className="text-xs font-medium uppercase text-slate-500">Preço Sysmo</p>
               <p className="text-xl font-bold text-slate-900">
                 R$ {product.precoSysmo.toFixed(2).replace(".", ",")}
-              </p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-3">
-              <p className="text-xs font-medium uppercase text-slate-500">Preço site</p>
-              <p className="text-xl font-bold text-slate-900">
-                R$ {product.preco.toFixed(2).replace(".", ",")}
               </p>
             </div>
             <div className="rounded-xl bg-slate-50 p-3">
