@@ -37,7 +37,37 @@ export default function AdminScannerPage() {
   const html5QrRef = useRef<InstanceType<typeof import("html5-qrcode").Html5Qrcode> | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
-  /** Cria/desbloqueia o áudio no gesto do utilizador (ex: ao iniciar câmera) para o bip funcionar no celular */
+  /** Bip sonoro quando o código de barras é lido (usa Web Audio; no celular precisa ter sido desbloqueado em unlockAudio) */
+  const playBeep = useCallback(() => {
+    try {
+      if (typeof window === "undefined") return;
+      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = audioContextRef.current || new Ctx();
+      if (!audioContextRef.current) audioContextRef.current = ctx;
+      const play = () => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 1200;
+        osc.type = "sine";
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.15);
+      };
+      if (ctx.state === "suspended") {
+        ctx.resume().then(play).catch(() => {});
+      } else {
+        play();
+      }
+    } catch {
+      // ignorar se áudio não for permitido
+    }
+  }, []);
+
+  /** Cria/desbloqueia o áudio no gesto do utilizador (ao iniciar câmera) e toca um bip de teste para o celular liberar o som */
   const unlockAudio = useCallback(() => {
     try {
       if (typeof window === "undefined") return;
@@ -46,38 +76,16 @@ export default function AdminScannerPage() {
       if (!audioContextRef.current) {
         audioContextRef.current = new Ctx();
       }
-      if (audioContextRef.current.state === "suspended") {
-        audioContextRef.current.resume();
+      const ctx = audioContextRef.current;
+      if (ctx.state === "suspended") {
+        ctx.resume().then(() => playBeep()).catch(() => {});
+      } else {
+        playBeep();
       }
     } catch {
       // ignorar
     }
-  }, []);
-
-  /** Bip sonoro quando o código de barras é lido */
-  const playBeep = useCallback(() => {
-    try {
-      if (typeof window === "undefined") return;
-      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!Ctx) return;
-      const ctx = audioContextRef.current || new Ctx();
-      if (ctx.state === "suspended") ctx.resume();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = 1200;
-      osc.type = "sine";
-      gain.gain.setValueAtTime(0.25, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.12);
-    } catch {
-      // ignorar se áudio não for permitido
-    }
-  }, []);
-
-  useEffect(() => {
+  }, [playBeep]);
 
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
