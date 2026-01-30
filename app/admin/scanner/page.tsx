@@ -304,30 +304,81 @@ export default function AdminScannerPage() {
       </div>
 
       <p className="text-sm text-slate-600">
-        Bipe o código de barras para conferir preço, estoque e ativar ou remover promoções.
+        Busque pelo nome ou bipe o código de barras para conferir preço, estoque e promoções.
       </p>
+
+      {/* Buscar por nome — SEMPRE VISÍVEL (no celular aparece primeiro, sem precisar da câmera) */}
+      <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/80 p-4">
+        <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-emerald-800">
+          <Search size={20} />
+          Procurar pelo nome do produto
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <input
+            type="text"
+            value={searchName}
+            onChange={(e) => setSearchName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && searchByName()}
+            placeholder="Ex: Supino, Abacaxi, Barra..."
+            className="min-w-0 flex-1 rounded-lg border border-emerald-300 bg-white px-3 py-3 text-base text-slate-900 placeholder:text-slate-500"
+            autoComplete="off"
+          />
+          <button
+            type="button"
+            onClick={searchByName}
+            disabled={loadingName || !searchName.trim()}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-3 text-base font-medium text-white hover:bg-emerald-700 disabled:opacity-50 touch-manipulation"
+          >
+            {loadingName ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search size={20} />}
+            Buscar
+          </button>
+        </div>
+        {nameResults && nameResults.length > 0 && (
+          <ul className="mt-3 max-h-56 space-y-2 overflow-y-auto">
+            {nameResults.map((p) => (
+              <li key={p.codigo}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProduct(p);
+                    setNameResults(null);
+                    setSearchName("");
+                    setError(null);
+                  }}
+                  className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-3 text-left text-sm text-slate-800 shadow-sm hover:bg-emerald-100 active:bg-emerald-200 touch-manipulation"
+                >
+                  <span className="font-medium">{p.descricao}</span>
+                  <span className="mt-1 block text-slate-500">R$ {p.preco.toFixed(2).replace(".", ",")} · Cód. {p.codigo}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {nameResults && nameResults.length === 0 && (
+          <p className="mt-2 text-sm text-slate-600">Nenhum produto encontrado. Digite outra parte do nome.</p>
+        )}
+      </div>
+
+      {error && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {error}
+        </div>
+      )}
 
       {!cameraStarted ? (
         <button
           type="button"
           onClick={requestCamera}
-          className="flex w-full min-h-[180px] flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 py-12 text-slate-700 transition active:bg-slate-100 hover:border-slate-400 hover:bg-slate-100 touch-manipulation select-none"
+          className="flex w-full min-h-[160px] flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 py-10 text-slate-700 transition active:bg-slate-100 hover:border-slate-400 hover:bg-slate-100 touch-manipulation select-none"
           style={{ WebkitTapHighlightColor: "transparent" }}
         >
-          <Camera className="h-14 w-14 text-slate-500" />
-          <span className="text-lg font-semibold">Iniciar câmera</span>
-          <span className="text-sm text-slate-500 text-center px-4">Toque para permitir a câmera e ativar o som (necessário no celular)</span>
+          <Camera className="h-12 w-12 text-slate-500" />
+          <span className="text-lg font-semibold">Ou bipar código de barras (câmera)</span>
+          <span className="text-sm text-slate-500 text-center px-4">Toque para iniciar a câmera</span>
         </button>
       ) : (
         <>
-          {error && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              {error}
-            </div>
-          )}
-
           <div ref={scannerRef} className="flex min-h-[240px] w-full justify-center overflow-hidden rounded-xl bg-black" />
-
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -337,55 +388,6 @@ export default function AdminScannerPage() {
               <Flashlight size={20} className={torchOn ? "text-amber-300" : ""} />
               {torchOn ? "Desligar lanterna" : "Ativar lanterna"}
             </button>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p className="mb-2 text-sm font-medium text-slate-700">
-              Não achou pelo código? Busque pelo nome (ex: Supino, Abacaxi)
-            </p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={searchName}
-                onChange={(e) => setSearchName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && searchByName()}
-                placeholder="Digite parte do nome..."
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400"
-              />
-              <button
-                type="button"
-                onClick={searchByName}
-                disabled={loadingName || !searchName.trim()}
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {loadingName ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search size={18} />}
-                Buscar
-              </button>
-            </div>
-            {nameResults && nameResults.length > 0 && (
-              <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto">
-                {nameResults.map((p) => (
-                  <li key={p.codigo}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProduct(p);
-                        setNameResults(null);
-                        setSearchName("");
-                        setError(null);
-                      }}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-100"
-                    >
-                      <span className="font-medium">{p.descricao}</span>
-                      <span className="ml-2 text-slate-500">R$ {p.preco.toFixed(2).replace(".", ",")} · {p.codigo}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {nameResults && nameResults.length === 0 && (
-              <p className="mt-2 text-sm text-slate-500">Nenhum produto encontrado. Tente outro termo.</p>
-            )}
           </div>
         </>
       )}
