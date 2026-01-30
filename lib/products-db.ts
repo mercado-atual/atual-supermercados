@@ -76,9 +76,17 @@ export async function getProductByCodigo(codigo: string): Promise<ProductDB | nu
 }
 
 /**
+ * Alias GTIN -> codigo: códigos lidos pelo scanner que correspondem ao mesmo produto no Sysmo.
+ * Ex.: Barra Supino Banana e Abacaxi na embalagem = 7896798603434, no banco = 7896798600040 (codigo 524900).
+ */
+const GTIN_ALIAS_TO_CODIGO: Record<string, string> = {
+  '7896798603434': '524900', // Barra Fruta Supino 24G (Banana e Abacaxi)
+};
+
+/**
  * Busca produto por GTIN (código de barras).
  * Pesquisa na coluna gtin do banco (sync Sysmo grava gtin/codigo_barras/ean nessa coluna).
- * Busca flexível: só dígitos na comparação; tenta o código exatamente como lido e com '0' na frente.
+ * Busca flexível: só dígitos; exato + '0' na frente; alias (scanner ≠ Sysmo); fallback últimos 12 dígitos.
  */
 export async function getProductByGtin(gtin: string): Promise<ProductDB | null> {
   const raw = (gtin || '').trim();
@@ -87,18 +95,56 @@ export async function getProductByGtin(gtin: string): Promise<ProductDB | null> 
   const digits = digitsOnly(raw);
   if (digits.length === 0) return null;
 
-  // Candidatos: exatamente como lido (normalizado) e com '0' na frente (EAN-13)
-  const candidates = new Set<string>();
   const n1 = normalizeGtin(raw);
-  if (n1) candidates.add(n1);
   const withLeadingZero = normalizeGtin('0' + digits);
+  const candidates = new Set<string>();
+  if (n1) candidates.add(n1);
   if (withLeadingZero) candidates.add(withLeadingZero);
 
   const products = await getProducts();
-  return products.find((p) => {
+
+  // 1) Match exato (exato como lido ou com 0 na frente)
+  let found = products.find((p) => {
     const pNorm = normalizeGtin(p.gtin || '');
     return pNorm && candidates.has(pNorm);
-  }) || null;
+  });
+
+  // 2) Alias: GTIN lido no scanner mapeia para codigo do banco
+  if (!found && n1 && GTIN_ALIAS_TO_CODIGO[n1]) {
+    found = await getProductByCodigo(GTIN_ALIAS_TO_CODIGO[n1]);
+  }
+
+  // 3) Sensibilidade: match pelos últimos 12 dígitos (scanner pode ler parcial ou 1 dígito errado)
+  if (!found && digits.length >= 12) {
+    const suffix12 = n1 ? n1.slice(-12) : digits.slice(-12);
+    found = products.find((p) => {
+      const pNorm = normalizeGtin(p.gtin || '');
+      return pNorm && pNorm.length >= 12 && pNorm.slice(-12) === suffix12;
+    }) || null;
+  }
+
+  return found || null;
+}
+
+/**
+ * Busca produtos pelo nome (descrição) nos ~16k itens.
+ * Comparação flexível: case insensitive, contém o termo.
+ */
+export async function searchProductsByDescricao(
+  termo: string,
+  limit = 50
+): Promise<{ total: number; products: ProductDB[] }> {
+  const q = (termo || '').trim();
+  if (!q) return { total: 0, products: [] };
+
+  const products = await getProducts();
+  const lower = q.toLowerCase();
+  const matches = products.filter((p) =>
+    (p.descricao || '').toLowerCase().includes(lower)
+  );
+  const total = matches.length;
+  const slice = matches.slice(0, limit);
+  return { total, products: slice };
 }
 
 // Atualizar badge (ex: oferta relâmpago)
