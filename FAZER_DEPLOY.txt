@@ -1,0 +1,41 @@
+═══════════════════════════════════════════════════════════
+  🚀 DEPLOY NO VERCEL - COMANDOS PARA COPIAR E COLAR
+═══════════════════════════════════════════════════════════
+
+PASSO 1: FAZER LOGIN
+───────────────────────────────────────────────────────────
+Copie e cole este comando no terminal:
+
+    vercel login
+
+→ Vai abrir o navegador
+→ Faça login com sua conta GitHub
+→ Autorize o acesso
+→ Volte ao terminal
+
+───────────────────────────────────────────────────────────
+
+PASSO 2: FAZER DEPLOY
+───────────────────────────────────────────────────────────
+Depois do login, copie e cole:
+
+    vercel --prod
+
+→ Responda:
+  • Link to existing project? → Digite: N
+  • What's your project's name? → Pressione ENTER
+  • In which directory? → Pressione ENTER
+  • Override settings? → Digite: N
+
+───────────────────────────────────────────────────────────
+
+PASSO 3: COPIAR O LINK
+───────────────────────────────────────────────────────────
+No final, você verá algo como:
+
+    ✅ Production: https://projeto-atual-xxxxx.vercel.app
+
+COPIE ESSE LINK e envie para o cliente!
+
+═══════════════════════════════════════════════════════════
+
