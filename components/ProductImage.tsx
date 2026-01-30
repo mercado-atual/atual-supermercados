@@ -81,12 +81,10 @@ export function ProductImage({
         style={minHeight ? { minHeight } : undefined}
         title={categoryLabel}
       >
-        <div className="flex flex-col items-center gap-0.5 p-1">
-          <CategoryIcon size={isCard ? 24 : 48} className="shrink-0" />
-          <span className="text-[10px] font-medium text-slate-500 truncate max-w-full px-0.5">
-            {categoryLabel}
-          </span>
-        </div>
+        <CategoryIcon size={isCard ? 24 : 48} className="shrink-0" />
+        <span className="text-[10px] font-medium text-slate-500 truncate max-w-full px-0.5">
+          {categoryLabel}
+        </span>
       </div>
     );
   }
