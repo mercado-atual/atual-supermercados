@@ -10,6 +10,7 @@ export const maxDuration = 60;
 
 const LAST_SYNC_FILE = path.join(process.cwd(), "data", "last_sync_sysmo.json");
 
+// Sysmo: codigo = Código Reduzido (ou id/sku/codigo_barras); gtin = Código de Barras / EAN (mapeado em sistema.ts: gtin ?? codigo_barras ?? ean)
 function produtoToProductDB(p: Produto) {
   const now = new Date().toISOString();
   const gtin = normalizeGtin(p.gtin || "") || (p.gtin || "").trim();

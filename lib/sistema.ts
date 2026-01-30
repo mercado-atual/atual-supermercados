@@ -147,13 +147,13 @@ const normalizeProduto = (item: ProdutoEntrada): Produto | null => {
   
   if (!codigo || !descricao) return null;
 
-  // Mapear GTIN/código de barras
+  // Mapear GTIN: Código de Barras (codigo_barras) e EAN do Sysmo vêm aqui
   const gtin = toStringValue(
-    item.gtin ?? 
-    item.codigo_barras ?? 
-    item.ean ?? 
-    item.codigo ?? 
-    item.id ?? 
+    item.gtin ??
+    item.codigo_barras ??
+    item.ean ??
+    item.codigo ??
+    item.id ??
     ""
   );
   

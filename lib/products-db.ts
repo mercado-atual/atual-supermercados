@@ -77,16 +77,58 @@ export async function getProductByCodigo(codigo: string): Promise<ProductDB | nu
 
 /**
  * Alias GTIN -> codigo: códigos lidos pelo scanner que correspondem ao mesmo produto no Sysmo.
- * Ex.: Barra Supino Banana e Abacaxi na embalagem = 7896798603434, no banco = 7896798600040 (codigo 524900).
  */
 const GTIN_ALIAS_TO_CODIGO: Record<string, string> = {
   '7896798603434': '524900', // Barra Fruta Supino 24G (Banana e Abacaxi)
 };
 
 /**
- * Busca produto por GTIN (código de barras).
- * Pesquisa na coluna gtin do banco (sync Sysmo grava gtin/codigo_barras/ean nessa coluna).
- * Busca flexível: só dígitos; exato + '0' na frente; alias (scanner ≠ Sysmo); fallback últimos 12 dígitos.
+ * Gera todas as formas de busca a partir do número lido (exato + partes).
+ * Scanner pode ler 7896798603434 → tentamos exato, com 0 na frente, últimos 12, 11, etc.
+ */
+function buildSearchCandidates(scannedDigits: string, normalized13: string): Set<string> {
+  const candidates = new Set<string>();
+  if (normalized13) candidates.add(normalized13);
+  candidates.add(normalizeGtin('0' + scannedDigits));
+  if (scannedDigits.length >= 12) candidates.add(scannedDigits.slice(-12));
+  if (scannedDigits.length >= 11) candidates.add(scannedDigits.slice(-11));
+  if (scannedDigits.length >= 8) candidates.add(scannedDigits);
+  return candidates;
+}
+
+/**
+ * Verifica se um produto bate com algum candidato de busca.
+ * Busca em TODAS as colunas de código: codigo e gtin (Sysmo envia codigo_barras/ean em gtin).
+ */
+function productMatchesCandidates(
+  p: ProductDB,
+  candidates: Set<string>
+): boolean {
+  const codigoDig = digitsOnly(p.codigo || '');
+  const gtinDig = digitsOnly(p.gtin || '');
+  const gtinNorm = normalizeGtin(p.gtin || '');
+
+  if (!codigoDig && !gtinDig && !gtinNorm) return false;
+
+  // Match exato em codigo ou gtin
+  if (candidates.has(codigoDig) || candidates.has(gtinDig) || candidates.has(gtinNorm)) return true;
+
+  // Match por partes: candidato contém ou é contido em codigo/gtin
+  for (const c of candidates) {
+    if (c.length < 6) continue;
+    if (codigoDig && (codigoDig === c || codigoDig.endsWith(c) || c.endsWith(codigoDig))) return true;
+    if (gtinNorm && (gtinNorm === c || gtinNorm.endsWith(c) || c.endsWith(gtinNorm))) return true;
+    if (gtinDig && (gtinDig === c || gtinDig.endsWith(c) || c.endsWith(gtinDig))) return true;
+  }
+  return false;
+}
+
+/**
+ * Busca produto pelo código lido no scanner (100% Sysmo).
+ * Procura em TODAS as colunas de código ao mesmo tempo: codigo, gtin (id/ean do Sysmo vêm em gtin).
+ * Sync importa Código de Barras (codigo_barras) e EAN (gtin/ean) do Sysmo para a coluna gtin;
+ * codigo recebe codigo/codigo_produto/id/sku ou codigo_barras quando aplicável.
+ * Busca: exato + com 0 na frente + partes do número (últimos 12/11 dígitos).
  */
 export async function getProductByGtin(gtin: string): Promise<ProductDB | null> {
   const raw = (gtin || '').trim();
@@ -96,34 +138,19 @@ export async function getProductByGtin(gtin: string): Promise<ProductDB | null> 
   if (digits.length === 0) return null;
 
   const n1 = normalizeGtin(raw);
-  const withLeadingZero = normalizeGtin('0' + digits);
-  const candidates = new Set<string>();
-  if (n1) candidates.add(n1);
-  if (withLeadingZero) candidates.add(withLeadingZero);
+  const candidates = buildSearchCandidates(digits, n1);
 
   const products = await getProducts();
 
-  // 1) Match exato (exato como lido ou com 0 na frente)
-  let found = products.find((p) => {
-    const pNorm = normalizeGtin(p.gtin || '');
-    return pNorm && candidates.has(pNorm);
-  });
+  // 1) Busca em todas as colunas (codigo + gtin) com exato e partes
+  let found: ProductDB | null = products.find((p) => productMatchesCandidates(p, candidates)) ?? null;
 
-  // 2) Alias: GTIN lido no scanner mapeia para codigo do banco
+  // 2) Alias: GTIN da embalagem mapeado para codigo do banco
   if (!found && n1 && GTIN_ALIAS_TO_CODIGO[n1]) {
     found = await getProductByCodigo(GTIN_ALIAS_TO_CODIGO[n1]);
   }
 
-  // 3) Sensibilidade: match pelos últimos 12 dígitos (scanner pode ler parcial ou 1 dígito errado)
-  if (!found && digits.length >= 12) {
-    const suffix12 = n1 ? n1.slice(-12) : digits.slice(-12);
-    found = products.find((p) => {
-      const pNorm = normalizeGtin(p.gtin || '');
-      return pNorm && pNorm.length >= 12 && pNorm.slice(-12) === suffix12;
-    }) || null;
-  }
-
-  return found || null;
+  return found;
 }
 
 /**
