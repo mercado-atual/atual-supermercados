@@ -35,6 +35,49 @@ export default function AdminScannerPage() {
   const lastGtinRef = useRef<string | null>(null);
   const scannerRef = useRef<HTMLDivElement>(null);
   const html5QrRef = useRef<InstanceType<typeof import("html5-qrcode").Html5Qrcode> | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  /** Cria/desbloqueia o áudio no gesto do utilizador (ex: ao iniciar câmera) para o bip funcionar no celular */
+  const unlockAudio = useCallback(() => {
+    try {
+      if (typeof window === "undefined") return;
+      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return;
+      if (!audioContextRef.current) {
+        audioContextRef.current = new Ctx();
+      }
+      if (audioContextRef.current.state === "suspended") {
+        audioContextRef.current.resume();
+      }
+    } catch {
+      // ignorar
+    }
+  }, []);
+
+  /** Bip sonoro quando o código de barras é lido */
+  const playBeep = useCallback(() => {
+    try {
+      if (typeof window === "undefined") return;
+      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = audioContextRef.current || new Ctx();
+      if (ctx.state === "suspended") ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 1200;
+      osc.type = "sine";
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.12);
+    } catch {
+      // ignorar se áudio não for permitido
+    }
+  }, []);
+
+  useEffect(() => {
 
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
@@ -76,8 +119,9 @@ export default function AdminScannerPage() {
 
   const requestCamera = useCallback(() => {
     setError(null);
+    unlockAudio();
     setCameraStarted(true);
-  }, []);
+  }, [unlockAudio]);
 
   useEffect(() => {
     if (!cameraStarted || !mounted || !scannerRef.current) return;
@@ -117,6 +161,7 @@ export default function AdminScannerPage() {
             const gtin = decodedText.replace(/\D/g, "").slice(-13) || decodedText;
             if (gtin.length >= 8 && gtin !== lastGtinRef.current) {
               lastGtinRef.current = gtin;
+              playBeep();
               fetchProduct(gtin);
             }
           },
@@ -144,7 +189,7 @@ export default function AdminScannerPage() {
       const el = document.getElementById(id);
       if (el?.parentNode) el.parentNode.removeChild(el);
     };
-  }, [cameraStarted, mounted, fetchProduct]);
+  }, [cameraStarted, mounted, fetchProduct, playBeep]);
 
   const toggleTorch = async () => {
     const html5Qr = html5QrRef.current;
