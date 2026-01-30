@@ -71,19 +71,19 @@ export function ProductImage({
 
   const isCard = size === "card";
   const width = isCard ? 400 : 600;
-  const height = isCard ? 280 : 400;
-  const minHeight = isCard ? "6rem" : "280px";
+  const height = isCard ? 400 : 400; // card quadrado
+  const minHeight = isCard ? undefined : "280px";
 
   if (showPlaceholder) {
     return (
       <div
         className={`flex items-center justify-center bg-slate-100 text-slate-400 ${className}`}
-        style={{ minHeight }}
+        style={minHeight ? { minHeight } : undefined}
         title={categoryLabel}
       >
-        <div className="flex flex-col items-center gap-1 p-2">
-          <CategoryIcon size={isCard ? 32 : 48} className="shrink-0" />
-          <span className="text-xs font-medium text-slate-500 truncate max-w-full px-1">
+        <div className="flex flex-col items-center gap-0.5 p-1">
+          <CategoryIcon size={isCard ? 24 : 48} className="shrink-0" />
+          <span className="text-[10px] font-medium text-slate-500 truncate max-w-full px-0.5">
             {categoryLabel}
           </span>
         </div>
@@ -94,7 +94,7 @@ export function ProductImage({
   const isExternal = currentSrc.startsWith("http://") || currentSrc.startsWith("https://");
 
   return (
-    <div className={`relative overflow-hidden bg-slate-100 ${className}`} style={{ minHeight }}>
+    <div className={`relative overflow-hidden bg-slate-100 ${className}`} style={minHeight ? { minHeight } : undefined}>
       <Image
         key={currentSrc}
         src={currentSrc}
@@ -106,7 +106,7 @@ export function ProductImage({
         priority={priority}
         onError={handleError}
         unoptimized={isExternal}
-        sizes={isCard ? "(max-width: 768px) 50vw, 25vw" : "(max-width: 768px) 100vw, 50vw"}
+        sizes={isCard ? "(max-width: 640px) 33vw, (max-width: 1024px) 20vw, 16vw" : "(max-width: 768px) 100vw, 50vw"}
       />
     </div>
   );
