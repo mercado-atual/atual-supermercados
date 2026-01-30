@@ -8,6 +8,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { getProductById, getProductsByCategory, Product } from "@/lib/products";
 import AppHeader from "@/components/AppHeader";
 import Footer from "@/components/Footer";
+import { ProductImage } from "@/components/ProductImage";
 import { ArrowLeft, ShoppingCart, Package, Scale, Plus, Minus, Loader2 } from "lucide-react";
 import { CATALOG_BUTTON_TEXT } from "@/lib/catalog-config";
 
@@ -128,30 +129,18 @@ export default function ProductPage() {
         {/* GRID DO PRODUTO */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
           {/* IMAGEM REDUZIDA */}
-          <div className="relative w-full h-[280px] md:h-[320px] bg-gray-100 rounded-xl overflow-hidden shadow-lg">
+          <div className="relative w-full h-[280px] md:h-[320px] rounded-xl overflow-hidden shadow-lg">
             {product.badge && (
               <span className="absolute top-3 left-3 bg-yellow-400 text-xs font-bold px-2 py-1 rounded-full text-red-900 z-10 shadow-md">
                 {product.badge}
               </span>
             )}
-            {product.image ? (
-              <img
-                src={product.image}
-                alt={product.title}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  const parent = e.currentTarget.parentElement;
-                  if (parent) {
-                    parent.innerHTML = '<div class="w-full h-full bg-gray-200 flex items-center justify-center"><span class="text-gray-400 text-sm">Sem imagem</span></div>';
-                  }
-                }}
-              />
-            ) : (
-              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                <span className="text-gray-400 text-sm">Sem imagem</span>
-              </div>
-            )}
+            <ProductImage
+              product={product}
+              size="detail"
+              className="w-full h-full"
+              priority
+            />
           </div>
 
           {/* INFORMAÇÕES DO PRODUTO COMPACTADAS */}

@@ -4,6 +4,7 @@ import AppHeader from "@/components/AppHeader";
 import Footer from "@/components/Footer";
 import { useCart, CATALOG_MESSAGE } from "@/contexts/CartContext";
 import { useToast } from "@/contexts/ToastContext";
+import { ProductImage } from "@/components/ProductImage";
 import { ShoppingCart, Search, Package } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useEffect, useState, useMemo } from "react";
@@ -119,26 +120,9 @@ function BuscaPageContent() {
               >
                 <Link
                   href={`/produto/${product.id}`}
-                  className="block relative w-full h-24 md:h-28 bg-gray-200 cursor-pointer overflow-hidden"
+                  className="block relative w-full h-24 md:h-28 cursor-pointer overflow-hidden"
                 >
-                  {product.image ? (
-                    <img
-                      src={product.image}
-                      alt={product.title}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                        const parent = e.currentTarget.parentElement;
-                        if (parent) {
-                          const div = parent.querySelector(".placeholder-img");
-                          if (div) (div as HTMLElement).classList.remove("hidden");
-                        }
-                      }}
-                    />
-                  ) : null}
-                  <div className={`placeholder-img w-full h-full flex items-center justify-center text-gray-400 text-sm ${product.image ? "hidden" : ""}`}>
-                    Sem imagem
-                  </div>
+                  <ProductImage product={product} size="card" className="w-full h-full" />
                 </Link>
 
                 <div className="p-3 flex flex-col justify-between flex-1">

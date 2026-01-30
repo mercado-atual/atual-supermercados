@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import { useCart, CATALOG_MESSAGE } from "@/contexts/CartContext";
 import { useToast } from "@/contexts/ToastContext";
 import { getProductsByCategory } from "@/lib/products";
+import { ProductImage } from "@/components/ProductImage";
 import { ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { CATALOG_BUTTON_TEXT_SHORT } from "@/lib/catalog-config";
@@ -50,18 +51,8 @@ export default function PadariaPage() {
                   </span>
                 )}
 
-                <Link href={`/produto/${product.id}`} className="block relative w-full h-24 md:h-28 bg-gray-200 cursor-pointer overflow-hidden">
-                  {product.image ? (
-                    <img
-                      src={product.image}
-                      alt={product.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <span className="text-gray-400 text-sm">Sem imagem</span>
-                    </div>
-                  )}
+                <Link href={`/produto/${product.id}`} className="block relative w-full h-24 md:h-28 cursor-pointer overflow-hidden">
+                  <ProductImage product={product} size="card" className="w-full h-full" />
                 </Link>
 
                 <div className="p-3 flex flex-col justify-between flex-1">

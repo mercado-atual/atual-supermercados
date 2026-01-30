@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "download-images": "tsx scripts/download-images.ts",
+    "download-images-db": "tsx scripts/download-images-from-db.ts",
     "deploy": "powershell -ExecutionPolicy Bypass -File ./deploy-vercel.ps1"
   },
   "dependencies": {
