@@ -82,7 +82,7 @@ export default function AdminScannerPage() {
   useEffect(() => {
     if (!cameraStarted || !mounted || !scannerRef.current) return;
 
-    let html5Qr: InstanceType<typeof import("html5-qrcode").Html5Qrcode | null> = null;
+    let html5Qr: InstanceType<typeof import("html5-qrcode").Html5Qrcode> | null = null;
     const id = "admin-barcode-reader";
 
     const run = async () => {
