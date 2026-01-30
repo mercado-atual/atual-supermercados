@@ -14,6 +14,7 @@ export interface ProductDB {
   updatedAt: string;
   imagem?: string; // Caminho da imagem do produto
   marca?: string; // Marca/Fabricante/Industrializador do produto
+  badge?: string; // Ex: "Oferta" para oferta relâmpago
 }
 
 const DB_FILE = path.join(process.cwd(), 'data', 'produtos_db.json');
@@ -53,6 +54,31 @@ export async function saveProducts(products: ProductDB[]): Promise<void> {
 export async function getProductByCodigo(codigo: string): Promise<ProductDB | null> {
   const products = await getProducts();
   return products.find(p => p.codigo === codigo) || null;
+}
+
+// Buscar produto por GTIN (código de barras EAN-13)
+export async function getProductByGtin(gtin: string): Promise<ProductDB | null> {
+  const normalized = (gtin || '').trim().replace(/^0+/, '') || gtin;
+  const products = await getProducts();
+  return products.find(p => {
+    const pGtin = (p.gtin || '').trim().replace(/^0+/, '');
+    return pGtin === normalized || p.gtin === gtin;
+  }) || null;
+}
+
+// Atualizar badge (ex: oferta relâmpago)
+export async function updateProductBadge(codigo: string, badge: string): Promise<ProductDB | null> {
+  const products = await getProducts();
+  const index = products.findIndex((p) => p.codigo === codigo);
+  if (index === -1) return null;
+  const now = new Date().toISOString();
+  products[index] = {
+    ...products[index],
+    badge: badge || undefined,
+    updatedAt: now,
+  };
+  await saveProducts(products);
+  return products[index];
 }
 
 // Atualizar ou criar produto

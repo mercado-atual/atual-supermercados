@@ -1,18 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { 
-  Package, 
-  CheckCircle, 
-  Clock, 
-  Truck, 
-  XCircle, 
-  LogOut,
+import {
+  Package,
+  MapPin,
+  MessageCircle,
+  Phone,
   RefreshCw,
-  Eye,
-  Edit
+  Loader2,
+  ChevronRight,
 } from "lucide-react";
 
 interface OrderItem {
@@ -25,10 +23,10 @@ interface OrderItem {
 interface Order {
   id: string;
   trackingCode: string;
-  status: 'recebido' | 'aceito' | 'em_separacao' | 'saiu_entrega' | 'entregue' | 'cancelado';
+  status: string;
+  paymentStatus: string;
   items: OrderItem[];
   address: {
-    cep?: string;
     rua: string;
     numero: string;
     complemento?: string;
@@ -41,406 +39,233 @@ interface Order {
   customerName?: string;
   customerPhone?: string;
   customerEmail?: string;
-  customerCPF?: string;
   createdAt: string;
-  updatedAt: string;
 }
 
-const statusConfig = {
-  recebido: { label: "Recebido", icon: Package, color: "bg-blue-100 text-blue-800" },
-  aceito: { label: "Aceito", icon: CheckCircle, color: "bg-green-100 text-green-800" },
-  em_separacao: { label: "Em Separação", icon: Package, color: "bg-yellow-100 text-yellow-800" },
-  saiu_entrega: { label: "Saiu para Entrega", icon: Truck, color: "bg-purple-100 text-purple-800" },
-  entregue: { label: "Entregue", icon: CheckCircle, color: "bg-green-100 text-green-800" },
-  cancelado: { label: "Cancelado", icon: XCircle, color: "bg-red-100 text-red-800" },
-};
+function buildGoogleMapsUrl(address: Order["address"]): string {
+  const parts = [
+    address.rua,
+    address.numero,
+    address.complemento,
+    address.bairro,
+    address.cidade,
+    address.estado,
+  ].filter(Boolean);
+  const query = encodeURIComponent(parts.join(", "));
+  return `https://www.google.com/maps/search/?api=1&query=${query}`;
+}
 
-export default function AdminPedidosPage() {
+function buildWhatsAppUrl(phone: string, orderCode: string, customerName: string): string {
+  const clean = phone.replace(/\D/g, "");
+  const num = clean.length >= 10 ? `55${clean}` : clean;
+  const msg = encodeURIComponent(
+    `Olá ${customerName || "cliente"}! Seu pedido #${orderCode} foi confirmado. Em breve entraremos em contato. Obrigado, Atual Supermercados.`
+  );
+  return `https://wa.me/${num}?text=${msg}`;
+}
+
+function playNewOrderBeep() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 800;
+    osc.type = "sine";
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.2);
+  } catch {
+    // fallback: optional beep via data URL or silent
+  }
+}
+
+export default function AdminPedidosEsteiraPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string>("all");
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const previousCountRef = useRef<number>(0);
+  const previousIdsRef = useRef<Set<string>>(new Set());
 
-  useEffect(() => {
-    // Verificar autenticação
+  const loadOrders = useCallback(async () => {
     const token = localStorage.getItem("admin_token");
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
-
-    loadOrders();
-    
-    // Atualizar pedidos a cada 30 segundos
-    const interval = setInterval(loadOrders, 30000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
-
-  const loadOrders = async () => {
+    if (!token) return;
     try {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch(
-        `/api/admin/orders${filter !== "all" ? `?status=${filter}` : ""}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.status === 401) {
+      const res = await fetch("/api/admin/orders", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) {
         localStorage.removeItem("admin_token");
         router.push("/admin/login");
         return;
       }
+      const data = await res.json();
+      if (data.success && Array.isArray(data.orders)) {
+        const list = data.orders as Order[];
+        setOrders(list);
 
-      const data = await response.json();
-      if (data.success) {
-        setOrders(data.orders);
+        const currentIds = new Set(list.map((o) => o.id));
+        const prevIds = previousIdsRef.current;
+        const hasNew =
+          list.length > previousCountRef.current ||
+          list.some((o) => !prevIds.has(o.id));
+        if (hasNew && previousCountRef.current > 0) {
+          playNewOrderBeep();
+        }
+        previousCountRef.current = list.length;
+        previousIdsRef.current = currentIds;
       }
-    } catch (error) {
-      console.error("Erro ao carregar pedidos:", error);
+    } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
 
-  const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
-    try {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch(`/api/admin/orders/${orderId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
+  useEffect(() => {
+    loadOrders();
+    const interval = setInterval(loadOrders, 8000);
+    return () => clearInterval(interval);
+  }, [loadOrders]);
 
-      if (response.ok) {
-        loadOrders();
-        setSelectedOrder(null);
-      }
-    } catch (error) {
-      console.error("Erro ao atualizar pedido:", error);
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+    if (!token) {
+      router.push("/admin/login");
+      return;
     }
-  };
+  }, [router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("admin_token");
-    router.push("/admin/login");
-  };
+  const formatPrice = (n: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString("pt-BR");
-  };
+  const formatDate = (s: string) =>
+    new Date(s).toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(price);
-  };
-
-  const getNextStatus = (currentStatus: Order['status']): Order['status'] | null => {
-    const statusFlow: Record<string, Order['status']> = {
-      recebido: "aceito",
-      aceito: "em_separacao",
-      em_separacao: "saiu_entrega",
-      saiu_entrega: "entregue",
-    };
-    return statusFlow[currentStatus] || null;
-  };
-
-  if (loading) {
+  if (loading && orders.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="w-8 h-8 text-red-700 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Carregando pedidos...</p>
-        </div>
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-black text-gray-900">
-                Painel Administrativo
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Gerenciamento de Pedidos - ATUAL Supermercados
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Link
-                href="/admin/produtos"
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                Produtos
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                <LogOut className="w-5 h-5" />
-                Sair
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Filtros */}
-        <div className="mb-6 flex flex-wrap gap-2">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">
+          Esteira de Pedidos
+        </h1>
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => setFilter("all")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              filter === "all"
-                ? "bg-red-700 text-white"
-                : "bg-white text-gray-700 hover:bg-gray-100"
-            }`}
+            type="button"
+            onClick={() => {
+              setLoading(true);
+              loadOrders();
+            }}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
           >
-            Todos ({orders.length})
+            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+            Atualizar
           </button>
-          {Object.entries(statusConfig).map(([key, config]) => {
-            const count = orders.filter((o) => o.status === key).length;
-            return (
-              <button
-                key={key}
-                onClick={() => setFilter(key)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                  filter === key
-                    ? "bg-red-700 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-100"
-                }`}
-              >
-                <config.icon className="w-4 h-4" />
-                {config.label} ({count})
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Lista de Pedidos */}
-        <div className="space-y-4">
-          {orders.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-              <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Nenhum pedido encontrado
-              </h3>
-              <p className="text-gray-600">
-                {filter === "all"
-                  ? "Ainda não há pedidos cadastrados."
-                  : `Não há pedidos com status "${statusConfig[filter as keyof typeof statusConfig]?.label}"`}
-              </p>
-            </div>
-          ) : (
-            orders.map((order) => {
-              const statusInfo = statusConfig[order.status];
-              const StatusIcon = statusInfo.icon;
-              const nextStatus = getNextStatus(order.status);
-
-              return (
-                <div
-                  key={order.id}
-                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="font-black text-lg text-gray-900">
-                          #{order.trackingCode}
-                        </span>
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${statusInfo.color}`}
-                        >
-                          <StatusIcon className="w-3 h-3" />
-                          {statusInfo.label}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
-                        <div>
-                          <strong>Cliente:</strong> {order.customerName || "Não informado"}
-                        </div>
-                        <div>
-                          <strong>CPF:</strong> {order.customerCPF || "Não informado"}
-                        </div>
-                        <div>
-                          <strong>Telefone:</strong> {order.customerPhone || "Não informado"}
-                        </div>
-                        <div>
-                          <strong>E-mail:</strong> {order.customerEmail || "Não informado"}
-                        </div>
-                        <div>
-                          <strong>Endereço:</strong> {order.address.rua}, {order.address.numero} - {order.address.bairro}
-                        </div>
-                        <div>
-                          <strong>Cidade:</strong> {order.address.cidade}/{order.address.estado}
-                        </div>
-                        <div>
-                          <strong>Pagamento:</strong> {order.paymentMethod === 'pix' ? 'PIX' : order.paymentMethod === 'credit' ? 'Cartão de Crédito' : order.paymentMethod === 'debit' ? 'Cartão de Débito' : order.paymentMethod}
-                        </div>
-                        <div>
-                          <strong>Data:</strong> {formatDate(order.createdAt)}
-                        </div>
-                      </div>
-
-                      <div className="mt-3">
-                        <strong className="text-gray-700">Itens:</strong>
-                        <ul className="mt-1 space-y-1">
-                          {order.items.map((item) => (
-                            <li key={item.id} className="text-sm text-gray-600">
-                              {item.quantity}x {item.title} - {formatPrice(item.price)}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div className="mt-3">
-                        <strong className="text-lg text-red-700">
-                          Total: {formatPrice(order.total)}
-                        </strong>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <button
-                        onClick={() => setSelectedOrder(order)}
-                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium flex items-center gap-2 transition-colors"
-                      >
-                        <Eye className="w-4 h-4" />
-                        Ver Detalhes
-                      </button>
-                      {nextStatus && (
-                        <button
-                          onClick={() => updateOrderStatus(order.id, nextStatus)}
-                          className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
-                        >
-                          <Edit className="w-4 h-4" />
-                          Avançar Status
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
         </div>
       </div>
 
-      {/* Modal de Detalhes */}
-      {selectedOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-black text-gray-900">
-                  Pedido #{selectedOrder.trackingCode}
-                </h2>
-                <button
-                  onClick={() => setSelectedOrder(null)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <XCircle className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
+      {orders.length === 0 ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <Package className="mx-auto h-12 w-12 text-slate-300" />
+          <p className="mt-3 font-medium text-slate-700">Nenhum pedido ainda</p>
+          <p className="text-sm text-slate-500">
+            Os novos pedidos aparecerão aqui em tempo real.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {orders.map((order) => {
+            const mapsUrl = buildGoogleMapsUrl(order.address);
+            const whatsappUrl = order.customerPhone
+              ? buildWhatsAppUrl(
+                  order.customerPhone,
+                  order.trackingCode,
+                  order.customerName || "Cliente"
+                )
+              : null;
+            const addressLine = [
+              order.address.rua,
+              order.address.numero,
+              order.address.complemento,
+              order.address.bairro,
+              order.address.cidade,
+              order.address.estado,
+            ]
+              .filter(Boolean)
+              .join(", ");
 
-            <div className="p-6 space-y-6">
-              <div>
-                <h3 className="font-bold text-gray-900 mb-2">Informações do Cliente</h3>
-                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                  <p><strong>Nome:</strong> {selectedOrder.customerName || "Não informado"}</p>
-                  <p><strong>CPF:</strong> {selectedOrder.customerCPF || "Não informado"}</p>
-                  <p><strong>E-mail:</strong> {selectedOrder.customerEmail || "Não informado"}</p>
-                  <p><strong>Telefone:</strong> {selectedOrder.customerPhone || "Não informado"}</p>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-bold text-gray-900 mb-2">Endereço de Entrega</h3>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p>
-                    {selectedOrder.address.rua}, {selectedOrder.address.numero}
-                    {selectedOrder.address.complemento && ` - ${selectedOrder.address.complemento}`}
-                  </p>
-                  <p>
-                    {selectedOrder.address.bairro} - {selectedOrder.address.cidade}/{selectedOrder.address.estado}
-                  </p>
-                  {selectedOrder.address.cep && <p>CEP: {selectedOrder.address.cep}</p>}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-bold text-gray-900 mb-2">Itens do Pedido</h3>
-                <div className="space-y-2">
-                  {selectedOrder.items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between bg-gray-50 rounded-lg p-3"
-                    >
-                      <div>
-                        <p className="font-medium">{item.title}</p>
-                        <p className="text-sm text-gray-600">
-                          {item.quantity}x {formatPrice(item.price)}
-                        </p>
-                      </div>
-                      <p className="font-bold">
-                        {formatPrice(item.quantity * item.price)}
-                      </p>
+            return (
+              <article
+                key={order.id}
+                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5"
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-slate-900">
+                        #{order.trackingCode}
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                        {order.status}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        {formatDate(order.createdAt)}
+                      </span>
                     </div>
-                  ))}
+                    <p className="font-medium text-slate-900">
+                      {order.customerName || "Cliente não informado"}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {formatPrice(order.total)} · {order.items.length} item(ns)
+                    </p>
+                    <p className="mt-2 flex items-start gap-1.5 text-sm text-slate-600">
+                      <MapPin size={16} className="mt-0.5 shrink-0 text-slate-400" />
+                      <span className="break-words">{addressLine}</span>
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center gap-2 sm:flex-col sm:items-end">
+                    <a
+                      href={mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200"
+                    >
+                      <MapPin size={18} />
+                      Ver no mapa
+                    </a>
+                    {whatsappUrl && (
+                      <a
+                        href={whatsappUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
+                      >
+                        <MessageCircle size={18} />
+                        Chamar no WhatsApp
+                      </a>
+                    )}
+                  </div>
                 </div>
-              </div>
-
-              <div className="border-t border-gray-200 pt-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-bold text-gray-900">Total:</span>
-                  <span className="text-2xl font-black text-red-700">
-                    {formatPrice(selectedOrder.total)}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600 mt-2">
-                  Forma de pagamento: {selectedOrder.paymentMethod === 'pix' ? 'PIX' : selectedOrder.paymentMethod === 'credit' ? 'Cartão de Crédito' : selectedOrder.paymentMethod === 'debit' ? 'Cartão de Débito' : selectedOrder.paymentMethod}
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-                {getNextStatus(selectedOrder.status) && (
-                  <button
-                    onClick={() => {
-                      updateOrderStatus(selectedOrder.id, getNextStatus(selectedOrder.status)!);
-                      setSelectedOrder(null);
-                    }}
-                    className="flex-1 bg-red-700 hover:bg-red-800 text-white font-bold py-3 px-4 rounded-lg transition-colors"
-                  >
-                    Avançar para {statusConfig[getNextStatus(selectedOrder.status)!].label}
-                  </button>
-                )}
-                <button
-                  onClick={() => setSelectedOrder(null)}
-                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 px-4 rounded-lg transition-colors"
-                >
-                  Fechar
-                </button>
-              </div>
-            </div>
-          </div>
+              </article>
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
-
