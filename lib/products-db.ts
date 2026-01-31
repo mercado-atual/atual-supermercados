@@ -194,7 +194,8 @@ export async function searchProductsByDescricao(
   if (!q) return { total: 0, products: [] };
 
   const queryNorm = normalizeForSearch(q);
-  const terms = queryNorm.split(/\s+/).filter((t) => t.length > 0);
+  // Ignora termos com menos de 3 caracteres (ex.: "t1" em "Arroz t1 Branco") para não zerar a busca
+  const terms = queryNorm.split(/\s+/).filter((t) => t.length >= 3);
   if (terms.length === 0) return { total: 0, products: [] };
 
   const products = await getProducts();
