@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const q = searchParams.get("q") || "";
-    const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 100);
+    const limit = Math.min(parseInt(searchParams.get("limit") || "100", 10), 100);
 
     if (!q.trim()) {
       return NextResponse.json(

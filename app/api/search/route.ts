@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProducts } from "@/lib/products-db";
+import { searchProductsByDescricao } from "@/lib/products-db";
 import type { Product } from "@/lib/products";
 
 export const dynamic = "force-dynamic";
@@ -52,27 +52,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const dbProducts = await getProducts();
-    const queryLower = q.toLowerCase().trim();
+    const { products: dbProducts } = await searchProductsByDescricao(q.trim(), Math.min(limit, 100));
 
     const testKg = /kg|quilo|grama/i;
     const testLitro = /litro| l |\d+\s*ml/i;
     const testPct = /pct|pacote|pac/i;
 
-    // Buscar TODOS os produtos (com e sem promoção) que correspondem à busca
-    const produtos: Product[] = dbProducts
-      .filter((p) => {
-        const descLower = p.descricao.toLowerCase();
-        const marcaLower = ((p as { marca?: string }).marca || "").toLowerCase();
-        const codigoLower = p.codigo.toLowerCase();
-        return (
-          descLower.includes(queryLower) ||
-          marcaLower.includes(queryLower) ||
-          codigoLower.includes(queryLower)
-        );
-      })
-      .slice(0, limit)
-      .map((p) => {
+    const produtos: Product[] = dbProducts.map((p) => {
         const marca = (p as { marca?: string }).marca || extrairMarcaDaDescricao(p.descricao);
         const imagem =
           (p as { imagem?: string }).imagem ||

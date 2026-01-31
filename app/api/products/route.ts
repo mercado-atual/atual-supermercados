@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProducts } from "@/lib/products-db";
+import { getProducts, searchProductsByDescricao } from "@/lib/products-db";
 import { Product } from "@/lib/products";
 
 export const dynamic = 'force-dynamic';
@@ -61,8 +61,10 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search");
     const limit = searchParams.get("limit");
 
-    // Buscar produtos do banco de dados
-    const dbProducts = await getProducts();
+    // Com busca: usa busca por termos (fuzzy, ranking); sem busca: todos os produtos
+    const dbProducts = search?.trim()
+      ? (await searchProductsByDescricao(search.trim(), 100)).products
+      : await getProducts();
 
     // Converter para formato do site
     let products: Product[] = dbProducts.map((p) => {
@@ -134,16 +136,6 @@ export async function GET(request: NextRequest) {
     // Filtrar por categoria
     if (category) {
       products = products.filter((p) => p.category === category);
-    }
-
-    // Buscar por termo
-    if (search) {
-      const searchLower = search.toLowerCase();
-      products = products.filter(
-        (p) =>
-          p.title.toLowerCase().includes(searchLower) ||
-          p.description?.toLowerCase().includes(searchLower)
-      );
     }
 
     // Limitar resultados

@@ -154,23 +154,62 @@ export async function getProductByGtin(gtin: string): Promise<ProductDB | null> 
 }
 
 /**
- * Busca produtos pelo nome (descrição) nos ~16k itens.
- * Comparação flexível: case insensitive, contém o termo.
+ * Normaliza texto para busca: remove acentos e coloca em minúsculas.
+ * Assim "Coca", "COCA" e "coca" trazem o mesmo resultado.
+ */
+export function normalizeForSearch(text: string): string {
+  if (!text || typeof text !== "string") return "";
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+/**
+ * Busca por termos (fuzzy): separa as palavras e exige que TODAS apareçam na descrição.
+ * Ex.: "Arroz Branco" → retorna itens que tenham "Arroz" E "Branco" (qualquer ordem).
+ * Ignora acentos e maiúsculas. Ranking: nome que COMEÇA com o que foi digitado aparece no topo.
+ * Limite padrão 100 resultados.
  */
 export async function searchProductsByDescricao(
   termo: string,
-  limit = 50
+  limit = 100
 ): Promise<{ total: number; products: ProductDB[] }> {
-  const q = (termo || '').trim();
+  const q = (termo || "").trim();
   if (!q) return { total: 0, products: [] };
 
+  const queryNorm = normalizeForSearch(q);
+  const terms = queryNorm.split(/\s+/).filter((t) => t.length > 0);
+  if (terms.length === 0) return { total: 0, products: [] };
+
   const products = await getProducts();
-  const lower = q.toLowerCase();
-  const matches = products.filter((p) =>
-    (p.descricao || '').toLowerCase().includes(lower)
-  );
+
+  const matches = products.filter((p) => {
+    const descNorm = normalizeForSearch(p.descricao || "");
+    return terms.every((t) => descNorm.includes(t));
+  });
+
   const total = matches.length;
-  const slice = matches.slice(0, limit);
+
+  const firstTerm = terms[0];
+  const ranked = matches.slice().sort((a, b) => {
+    const descA = normalizeForSearch(a.descricao || "");
+    const descB = normalizeForSearch(b.descricao || "");
+    const score = (desc: string) => {
+      if (desc.startsWith(queryNorm)) return 0;
+      if (desc.startsWith(firstTerm)) return 1;
+      return 2;
+    };
+    const scoreA = score(descA);
+    const scoreB = score(descB);
+    if (scoreA !== scoreB) return scoreA - scoreB;
+    const posA = descA.indexOf(firstTerm);
+    const posB = descB.indexOf(firstTerm);
+    return posA - posB;
+  });
+
+  const slice = ranked.slice(0, limit);
   return { total, products: slice };
 }
 
