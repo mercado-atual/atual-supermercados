@@ -2,11 +2,19 @@
   ✅ SEU SITE ESTÁ NO AR!
 ═══════════════════════════════════════════════════════════
 
-🌐 LINK PRINCIPAL:
-   https://projeto-atual-psi.vercel.app
+🌐 LINK PRINCIPAL (teste este primeiro):
+   https://atual-supermercados.vercel.app
 
 🔗 LINK ALTERNATIVO:
-   https://projeto-atual-2zgz5tm52-canalvideosadrenalina-uis-projects.vercel.app
+   https://projeto-atual-psi.vercel.app
+
+⚠️ SE DER 404: O projeto que recebe o código é o conectado ao repo
+   mercado-atual/atual-supermercados. Use a URL desse projeto.
+   Veja: docs/ERRO_404_COMO_RESOLVER.md
+
+📌 ADMIN E SCANNER (use a mesma URL que abrir a home):
+   /admin/login   → Login admin
+   /admin/scanner → Scanner de preços
 
 ═══════════════════════════════════════════════════════════
 
