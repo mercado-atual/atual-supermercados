@@ -83,13 +83,23 @@ const GTIN_ALIAS_TO_CODIGO: Record<string, string> = {
 };
 
 /**
+ * Alias automático para códigos que começam com 789: remove zeros à esquerda.
+ * Sysmo pode gravar com zero na frente (ex: 07896798603434); scanner lê 789...3434.
+ */
+function clean789LeadingZeros(digits: string): string {
+  if (!digits) return digits;
+  const cleaned = digits.replace(/^0+/, "");
+  return cleaned.startsWith("789") ? cleaned : digits;
+}
+
+/**
  * Gera todas as formas de busca a partir do número lido (exato + partes).
- * Scanner pode ler 7896798603434 → tentamos exato, com 0 na frente, últimos 12, 11, etc.
+ * Inclui últimos 12 dígitos para ignorar dígito verificador e zero inicial.
  */
 function buildSearchCandidates(scannedDigits: string, normalized13: string): Set<string> {
   const candidates = new Set<string>();
   if (normalized13) candidates.add(normalized13);
-  candidates.add(normalizeGtin('0' + scannedDigits));
+  candidates.add(normalizeGtin("0" + scannedDigits));
   if (scannedDigits.length >= 12) candidates.add(scannedDigits.slice(-12));
   if (scannedDigits.length >= 11) candidates.add(scannedDigits.slice(-11));
   if (scannedDigits.length >= 8) candidates.add(scannedDigits);
@@ -98,46 +108,50 @@ function buildSearchCandidates(scannedDigits: string, normalized13: string): Set
 
 /**
  * Verifica se um produto bate com algum candidato de busca.
- * Busca em TODAS as colunas de código: codigo e gtin (Sysmo envia codigo_barras/ean em gtin).
+ * Match pelos últimos 12 dígitos: ignora dígito verificador e zero inicial (Sysmo 12 vs 13 dígitos).
  */
 function productMatchesCandidates(
   p: ProductDB,
   candidates: Set<string>
 ): boolean {
-  const codigoDig = digitsOnly(p.codigo || '');
-  const gtinDig = digitsOnly(p.gtin || '');
-  const gtinNorm = normalizeGtin(p.gtin || '');
+  const codigoDig = digitsOnly(p.codigo || "");
+  const gtinDig = digitsOnly(p.gtin || "");
+  const gtinNorm = normalizeGtin(p.gtin || "");
 
   if (!codigoDig && !gtinDig && !gtinNorm) return false;
 
-  // Match exato em codigo ou gtin
   if (candidates.has(codigoDig) || candidates.has(gtinDig) || candidates.has(gtinNorm)) return true;
 
-  // Match por partes: candidato contém ou é contido em codigo/gtin
   for (const c of candidates) {
     if (c.length < 6) continue;
     if (codigoDig && (codigoDig === c || codigoDig.endsWith(c) || c.endsWith(codigoDig))) return true;
     if (gtinNorm && (gtinNorm === c || gtinNorm.endsWith(c) || c.endsWith(gtinNorm))) return true;
     if (gtinDig && (gtinDig === c || gtinDig.endsWith(c) || c.endsWith(gtinDig))) return true;
+    // Match apenas últimos 12 dígitos (ignora dígito verificador e zero à esquerda)
+    if (c.length === 12) {
+      if (gtinNorm.length >= 12 && gtinNorm.slice(-12) === c) return true;
+      if (codigoDig.length >= 12 && codigoDig.slice(-12) === c) return true;
+      if (gtinDig.length >= 12 && gtinDig.slice(-12) === c) return true;
+    }
   }
   return false;
 }
 
 /**
- * Busca produto pelo código lido no scanner (100% Sysmo).
- * Procura em TODAS as colunas de código ao mesmo tempo: codigo, gtin (id/ean do Sysmo vêm em gtin).
- * Sync importa Código de Barras (codigo_barras) e EAN (gtin/ean) do Sysmo para a coluna gtin;
- * codigo recebe codigo/codigo_produto/id/sku ou codigo_barras quando aplicável.
- * Busca: exato + com 0 na frente + partes do número (últimos 12/11 dígitos).
+ * Busca produto pelo código lido no scanner (foco total no código de barras).
+ * - Alias automático: códigos que começam com 789 têm zeros à esquerda removidos antes da busca.
+ * - Match exato; se não achar, match pelos últimos 12 dígitos (ignora dígito verificador e zero inicial).
  */
 export async function getProductByGtin(gtin: string): Promise<ProductDB | null> {
-  const raw = (gtin || '').trim();
+  const raw = (gtin || "").trim();
   if (!raw) return null;
 
-  const digits = digitsOnly(raw);
+  let digits = digitsOnly(raw);
   if (digits.length === 0) return null;
 
-  const n1 = normalizeGtin(raw);
+  digits = clean789LeadingZeros(digits);
+
+  const n1 = normalizeGtin(digits);
   const candidates = buildSearchCandidates(digits, n1);
 
   const products = await getProducts();
