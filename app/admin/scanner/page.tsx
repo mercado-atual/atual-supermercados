@@ -307,6 +307,41 @@ export default function AdminScannerPage() {
         Busque pelo nome ou bipe o código de barras para conferir preço, estoque e promoções.
       </p>
 
+      {/* Visor da câmera no topo (quando ativa) — visual profissional com mira e overlay */}
+      {cameraStarted && (
+        <div className="relative w-full overflow-hidden rounded-xl bg-black">
+          <div ref={scannerRef} className="relative z-0 flex min-h-[280px] w-full justify-center" />
+          {/* Overlay: bordas escurecidas, centro claro (faixa de leitura) */}
+          <div
+            className="pointer-events-none absolute inset-0 z-10 rounded-xl"
+            style={{
+              background:
+                "radial-gradient(ellipse 85% 35% at 50% 50%, transparent 0%, transparent 40%, rgba(0,0,0,0.7) 100%)",
+            }}
+          />
+          {/* Linha vermelha central — mira tipo leitor de código de barras / laser */}
+          <div
+            className="pointer-events-none absolute left-0 right-0 top-1/2 z-20 h-0 -translate-y-1/2 border-t-2 border-red-500"
+            style={{
+              boxShadow: "0 0 16px 3px rgba(255,0,0,0.85), 0 0 40px 6px rgba(255,0,0,0.4)",
+            }}
+          />
+        </div>
+      )}
+
+      {cameraStarted && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={toggleTorch}
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-3 text-sm font-medium text-white hover:bg-slate-700"
+          >
+            <Flashlight size={20} className={torchOn ? "text-amber-300" : ""} />
+            {torchOn ? "Desligar lanterna" : "Ativar lanterna"}
+          </button>
+        </div>
+      )}
+
       {/* Buscar por nome — SEMPRE VISÍVEL (no celular aparece primeiro, sem precisar da câmera) */}
       <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/80 p-4">
         <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-emerald-800">
@@ -376,21 +411,7 @@ export default function AdminScannerPage() {
           <span className="text-lg font-semibold">Ou bipar código de barras (câmera)</span>
           <span className="text-sm text-slate-500 text-center px-4">Toque para iniciar a câmera</span>
         </button>
-      ) : (
-        <>
-          <div ref={scannerRef} className="flex min-h-[240px] w-full justify-center overflow-hidden rounded-xl bg-black" />
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={toggleTorch}
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-3 text-sm font-medium text-white hover:bg-slate-700"
-            >
-              <Flashlight size={20} className={torchOn ? "text-amber-300" : ""} />
-              {torchOn ? "Desligar lanterna" : "Ativar lanterna"}
-            </button>
-          </div>
-        </>
-      )}
+      ) : null}
 
       {loading && (
         <div className="flex items-center justify-center gap-2 rounded-xl bg-slate-100 py-4">
