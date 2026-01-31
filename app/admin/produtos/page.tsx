@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Upload, Package, LogOut, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Upload, Package, LogOut, CheckCircle, XCircle, AlertCircle, ScanBarcode } from "lucide-react";
 
 interface ImportResult {
   success: boolean;
@@ -154,6 +154,13 @@ export default function AdminProdutosPage() {
             </div>
             <div className="flex items-center gap-3">
               <Link
+                href="/admin/scanner"
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors"
+              >
+                <ScanBarcode className="w-5 h-5" />
+                Scanner
+              </Link>
+              <Link
                 href="/admin"
                 className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -172,6 +179,23 @@ export default function AdminProdutosPage() {
       </header>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Scanner — acesso rápido */}
+        <Link
+          href="/admin/scanner"
+          className="mb-6 flex items-center justify-between rounded-xl border-2 border-red-200 bg-red-50 p-4 transition-colors hover:border-red-400 hover:bg-red-100"
+        >
+          <div className="flex items-center gap-3">
+            <div className="rounded-full bg-red-600 p-3">
+              <ScanBarcode className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <p className="font-bold text-gray-900">Consultar preço (Scanner)</p>
+              <p className="text-sm text-gray-600">Bipar código de barras ou buscar por nome</p>
+            </div>
+          </div>
+          <span className="text-sm font-semibold text-red-600">Abrir →</span>
+        </Link>
+
         {/* Estatísticas */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex items-center gap-4">
